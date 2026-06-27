@@ -637,6 +637,15 @@
                     </div>
                     <h2 class="text-3xl font-black mb-1 tracking-tight">Welcome back, <span id="welcome-name" class="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400"></span></h2>
                     <p id="welcome-message" class="text-slate-400 text-sm max-w-2xl leading-relaxed"></p>
+                    <div id="bootstrap-banner" class="hidden mt-5 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-amber-100">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-shield-alt mt-0.5 text-amber-300"></i>
+                            <div>
+                                <p id="bootstrap-banner-title" class="font-bold text-sm"></p>
+                                <p id="bootstrap-banner-body" class="text-xs text-amber-100/80 mt-1 leading-relaxed"></p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="absolute right-0 top-0 w-64 h-64 bg-red-600/10 blur-[100px] -mr-32 -mt-32 rounded-full"></div>
                 <i class="fas fa-shipping-fast absolute -right-6 -bottom-6 text-[12rem] text-white/5 transform -rotate-12 pointer-events-none"></i>
@@ -648,7 +657,7 @@
                 </div>
                 <h2 class="text-2xl font-bold text-slate-800">Account Pending Approval</h2>
                 <p id="pending-approval-message" class="text-slate-600 mt-4 leading-relaxed">
-                    Your account has been registered successfully. For security reasons, an administrator must manually verify and approved your access level.
+                    Your account has been registered successfully. For security reasons, an administrator must manually verify and approve your access level.
                 </p>
                 <div class="mt-8 p-4 bg-slate-50 rounded-md border border-slate-200">
                     <p class="text-sm text-slate-500 font-medium uppercase tracking-wider">How to speed up approval?</p>
@@ -1418,7 +1427,7 @@
 
 
         // --- DOM Elements (initialized on DOMContentLoaded) ---
-        let authView, appView, userEmailSpan, userRoleSpan, consignmentsTableBody, usersTableBody, auditLogBody, loadingState, alertBox, addConsignmentBtn, consignmentModal, detailsModal, shipmentModal, confirmModal, consignmentForm, shipmentForm, nav, views, bulkStatusModal, bootstrapAdminWrap, bootstrapAdminCheckbox, bootstrapStatus, registerFlowNote;
+        let authView, appView, userEmailSpan, userRoleSpan, consignmentsTableBody, usersTableBody, auditLogBody, loadingState, alertBox, addConsignmentBtn, consignmentModal, detailsModal, shipmentModal, confirmModal, consignmentForm, shipmentForm, nav, views, bulkStatusModal, bootstrapAdminWrap, bootstrapAdminCheckbox, bootstrapStatus, registerFlowNote, bootstrapBanner, bootstrapBannerTitle, bootstrapBannerBody;
 
         // --- Firebase Initialization ---
         const firebaseConfig = window.__FIREBASE_CONFIG__;
@@ -1549,7 +1558,7 @@
         };
 
         const updateBootstrapUI = () => {
-            if (!bootstrapAdminWrap || !bootstrapAdminCheckbox || !bootstrapStatus || !registerFlowNote) return;
+            if (!bootstrapAdminWrap || !bootstrapAdminCheckbox || !bootstrapStatus || !registerFlowNote || !bootstrapBanner || !bootstrapBannerTitle || !bootstrapBannerBody) return;
 
             if (!bootstrapState.loaded) {
                 bootstrapAdminWrap.classList.remove('hidden');
@@ -1557,6 +1566,7 @@
                 bootstrapAdminCheckbox.checked = false;
                 bootstrapStatus.textContent = 'Checking whether the first admin has already been created...';
                 registerFlowNote.innerHTML = 'Registration is being checked for first-time setup availability.';
+                bootstrapBanner.classList.add('hidden');
                 return;
             }
 
@@ -1565,11 +1575,21 @@
                 bootstrapAdminCheckbox.checked = false;
                 bootstrapAdminCheckbox.disabled = true;
                 registerFlowNote.innerHTML = 'New accounts will be created as <span class="font-semibold">Pending Approval</span> and activated by an admin.';
+                if (currentUser?.role === 'Admin') {
+                    bootstrapBanner.classList.remove('hidden');
+                    bootstrapBannerTitle.textContent = 'Bootstrap complete';
+                    bootstrapBannerBody.textContent = 'The first admin has already been created. Use User Management to approve staff and maintain access.';
+                } else {
+                    bootstrapBanner.classList.add('hidden');
+                }
             } else {
                 bootstrapAdminWrap.classList.remove('hidden');
                 bootstrapAdminCheckbox.disabled = false;
                 bootstrapStatus.textContent = 'First admin setup is available on this installation.';
                 registerFlowNote.innerHTML = 'You can create the first admin account now, or register as a normal user for <span class="font-semibold">Pending Approval</span>.';
+                bootstrapBanner.classList.remove('hidden');
+                bootstrapBannerTitle.textContent = 'First admin setup available';
+                bootstrapBannerBody.textContent = 'This installation does not have an admin yet. Use the bootstrap option once, then continue with normal approval-based sign-ups.';
             }
         };
 
@@ -1709,7 +1729,7 @@
                     if (currentUser.role === 'Pending Approval') {
                         document.getElementById('consignments-view').classList.add('hidden');
                         document.getElementById('pending-approval-view').classList.remove('hidden');
-                        document.getElementById('pending-approval-message').textContent = "Your account has been registered successfully. For security reasons, an administrator must manually verify and approved your access level.";
+                        document.getElementById('pending-approval-message').textContent = "Your account has been registered successfully. For security reasons, an administrator must manually verify and approve your access level.";
                     } else if (['Consignee', 'Consignor'].includes(currentUser.role) && !currentUser.organizationName) {
                         document.getElementById('consignments-view').classList.add('hidden');
                         document.getElementById('pending-approval-view').classList.remove('hidden');
@@ -1724,6 +1744,7 @@
                             listenForOrganizations();
                         }
                     }
+                    updateBootstrapUI();
                 } catch (error) {
                     console.error("CRITICAL: Error initializing app for user:", error);
                     showAlert(`Initialization Error: ${error.message}`, 'error');
@@ -5178,6 +5199,9 @@
             bootstrapAdminCheckbox = document.getElementById('bootstrap-admin');
             bootstrapStatus = document.getElementById('bootstrap-status');
             registerFlowNote = document.getElementById('register-flow-note');
+            bootstrapBanner = document.getElementById('bootstrap-banner');
+            bootstrapBannerTitle = document.getElementById('bootstrap-banner-title');
+            bootstrapBannerBody = document.getElementById('bootstrap-banner-body');
 
             // Add E-way Bill row button
             document.getElementById('add-eway-bill-btn').addEventListener('click', () => addEwayBillRow());
