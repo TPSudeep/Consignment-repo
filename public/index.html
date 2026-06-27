@@ -4402,6 +4402,12 @@
             document.body.addEventListener('change', async (e) => {
                 const roleSelect = e.target.closest('.role-select');
                 if (roleSelect) {
+                    if (currentUser?.role !== 'Admin') {
+                        showAlert('Only Admins can edit user roles.', 'error');
+                        roleSelect.value = roleSelect.dataset.currentRole;
+                        return;
+                    }
+
                     const uid = roleSelect.dataset.uid;
                     const newRole = roleSelect.value;
                     const currentRole = roleSelect.dataset.currentRole;
@@ -4409,6 +4415,7 @@
                         await updateDoc(doc(db, "users", uid), { role: newRole });
                         await logAuditEvent('Updated User Role', `User ${uid} changed to ${newRole}`);
                         showAlert('User role updated successfully');
+                        roleSelect.dataset.currentRole = newRole;
                     } catch (error) {
                         console.error('Error updating role:', error);
                         showAlert('Failed to update user role', true);
@@ -4716,21 +4723,29 @@
             // Smart Defaults - Load last used values from localStorage
             const loadSmartDefaults = () => {
                 try {
+                    const consignorField = document.getElementById('consignor-name');
+                    const unitField = document.getElementById('quantity-unit');
+                    const expiryField = document.getElementById('eway-bill-expiry');
+
+                    if (!consignorField || !unitField || !expiryField) {
+                        return;
+                    }
+
                     const lastConsignor = localStorage.getItem('lastConsignorName');
                     const lastUnit = localStorage.getItem('lastUnit');
 
-                    if (lastConsignor && !document.getElementById('consignor-name').value) {
-                        document.getElementById('consignor-name').value = lastConsignor;
+                    if (lastConsignor && !consignorField.value) {
+                        consignorField.value = lastConsignor;
                     }
                     if (lastUnit) {
-                        document.getElementById('quantity-unit').value = lastUnit;
+                        unitField.value = lastUnit;
                     }
 
                     // Auto-populate eWay Bill expiry (4 days from today)
-                    if (!document.getElementById('eway-bill-expiry').value) {
+                    if (!expiryField.value) {
                         const expiryDate = new Date();
                         expiryDate.setDate(expiryDate.getDate() + 4);
-                        document.getElementById('eway-bill-expiry').value = expiryDate.toISOString().split('T')[0];
+                        expiryField.value = expiryDate.toISOString().split('T')[0];
                     }
                 } catch (e) {
                     console.error('Error loading smart defaults:', e);
