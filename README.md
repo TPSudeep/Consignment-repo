@@ -40,6 +40,16 @@ Use `public/firebase-config.example.js` as the template, then create your untrac
 
 If no admin exists yet, the registration screen exposes a one-time first-admin bootstrap option. That path creates the first `Admin` user and locks the bootstrap doc so later sign-ups return to pending-approval flow.
 
+## Backups
+
+Run the local snapshot script before larger edits:
+
+```powershell
+.\scripts\backup-app.ps1
+```
+
+It creates a timestamped zip under `backups/` and includes the local Firebase config file for restore purposes.
+
 ## Deployment Notes
 
 This app appears to be deployed through Firebase Hosting. Typical flow:
