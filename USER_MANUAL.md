@@ -11,7 +11,6 @@ Welcome to the **Jadwet Consignment Tracker**, a real-time system designed to st
 - **Login**: Enter your registered email and password.
 - **Registration**: If you are a new user, click "Register". 
   - Fill in your email and password.
-  - **Admin Secret**: If you are an administrator, enter the secret code provided to you to gain elevated permissions.
 - **Account Approval**: After registration, an administrator must approve your account and assign you a role before you can access the system.
 
 ---

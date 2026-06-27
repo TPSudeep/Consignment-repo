@@ -567,9 +567,9 @@
                         class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         autocomplete="new-password"
                         required>
-                    <input id="register-secret" type="password" placeholder="Admin Secret Code (optional)"
-                        class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autocomplete="new-password">
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        New accounts will be created as <span class="font-semibold">Pending Approval</span> and activated by an admin.
+                    </p>
                     <button id="register-btn" type="submit"
                         class="w-full px-4 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Register</button>
                 </form>
@@ -1373,7 +1373,6 @@
         import { getFirestore, collection, addDoc, doc, setDoc, getDoc, updateDoc, onSnapshot, query, serverTimestamp, writeBatch, deleteDoc, getDocs, runTransaction, where, increment, arrayUnion, arrayRemove, orderBy, collectionGroup, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- App State & Constants ---
-        const ADMIN_SECRET = "MahindraC&F";
         let app, auth, db;
         let currentUser = null;
         let currentConsignmentId = null;
@@ -1575,13 +1574,11 @@
             e.preventDefault();
             const email = document.getElementById('register-email').value;
             const password = document.getElementById('register-password').value;
-            const secret = document.getElementById('register-secret').value;
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const role = secret === ADMIN_SECRET ? 'Admin' : 'Pending Approval';
                 await setDoc(doc(db, "users", userCredential.user.uid), {
                     email: email,
-                    role: role,
+                    role: 'Pending Approval',
                     createdAt: serverTimestamp()
                 });
                 showAlert('Registration successful. Please login.');
