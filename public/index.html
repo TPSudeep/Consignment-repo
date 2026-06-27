@@ -567,7 +567,19 @@
                         class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         autocomplete="new-password"
                         required>
-                    <p class="text-xs text-slate-500 leading-relaxed">
+                    <div id="bootstrap-admin-wrap" class="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <div class="flex items-start gap-3">
+                            <input id="bootstrap-admin" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+                            <label for="bootstrap-admin" class="text-sm text-slate-700">
+                                <span class="font-semibold">Create the first admin account</span>
+                                <span class="block text-xs text-slate-500 mt-1">
+                                    Use this only for the very first administrator. After it is claimed, all new accounts will require approval.
+                                </span>
+                            </label>
+                        </div>
+                        <p id="bootstrap-status" class="mt-2 text-xs font-medium text-amber-700"></p>
+                    </div>
+                    <p id="register-flow-note" class="text-xs text-slate-500 leading-relaxed">
                         New accounts will be created as <span class="font-semibold">Pending Approval</span> and activated by an admin.
                     </p>
                     <button id="register-btn" type="submit"
@@ -1375,12 +1387,14 @@
         // --- App State & Constants ---
         let app, auth, db;
         let currentUser = null;
+        let bootstrapState = { loaded: false, claimed: false };
         let currentConsignmentId = null;
         let currentConsignmentDisplayId = null;
         let unsubscribeConsignments = null;
         let unsubscribeUsers = null;
         let unsubscribeAuditLogs = null;
         let unsubscribeShipments = null;
+        let unsubscribeBootstrapState = null;
         let allConsignments = [];
         let uniqueShipToNames = [];
         let uniqueConsignorNames = [];
@@ -1404,7 +1418,7 @@
 
 
         // --- DOM Elements (initialized on DOMContentLoaded) ---
-        let authView, appView, userEmailSpan, userRoleSpan, consignmentsTableBody, usersTableBody, auditLogBody, loadingState, alertBox, addConsignmentBtn, consignmentModal, detailsModal, shipmentModal, confirmModal, consignmentForm, shipmentForm, nav, views, bulkStatusModal;
+        let authView, appView, userEmailSpan, userRoleSpan, consignmentsTableBody, usersTableBody, auditLogBody, loadingState, alertBox, addConsignmentBtn, consignmentModal, detailsModal, shipmentModal, confirmModal, consignmentForm, shipmentForm, nav, views, bulkStatusModal, bootstrapAdminWrap, bootstrapAdminCheckbox, bootstrapStatus, registerFlowNote;
 
         // --- Firebase Initialization ---
         const firebaseConfig = window.__FIREBASE_CONFIG__;
@@ -1534,6 +1548,31 @@
             showToast(message, toastType);
         };
 
+        const updateBootstrapUI = () => {
+            if (!bootstrapAdminWrap || !bootstrapAdminCheckbox || !bootstrapStatus || !registerFlowNote) return;
+
+            if (!bootstrapState.loaded) {
+                bootstrapAdminWrap.classList.remove('hidden');
+                bootstrapAdminCheckbox.disabled = true;
+                bootstrapAdminCheckbox.checked = false;
+                bootstrapStatus.textContent = 'Checking whether the first admin has already been created...';
+                registerFlowNote.innerHTML = 'Registration is being checked for first-time setup availability.';
+                return;
+            }
+
+            if (bootstrapState.claimed) {
+                bootstrapAdminWrap.classList.add('hidden');
+                bootstrapAdminCheckbox.checked = false;
+                bootstrapAdminCheckbox.disabled = true;
+                registerFlowNote.innerHTML = 'New accounts will be created as <span class="font-semibold">Pending Approval</span> and activated by an admin.';
+            } else {
+                bootstrapAdminWrap.classList.remove('hidden');
+                bootstrapAdminCheckbox.disabled = false;
+                bootstrapStatus.textContent = 'First admin setup is available on this installation.';
+                registerFlowNote.innerHTML = 'You can create the first admin account now, or register as a normal user for <span class="font-semibold">Pending Approval</span>.';
+            }
+        };
+
         const showModal = (modal) => modal.classList.replace('hidden', 'flex');
         const hideModal = (modal) => modal.classList.replace('flex', 'hidden');
 
@@ -1574,14 +1613,34 @@
             e.preventDefault();
             const email = document.getElementById('register-email').value;
             const password = document.getElementById('register-password').value;
+            const createFirstAdmin = bootstrapAdminCheckbox?.checked && bootstrapState.loaded && !bootstrapState.claimed;
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await setDoc(doc(db, "users", userCredential.user.uid), {
-                    email: email,
-                    role: 'Pending Approval',
-                    createdAt: serverTimestamp()
-                });
-                showAlert('Registration successful. Please login.');
+                if (createFirstAdmin) {
+                    const batch = writeBatch(db);
+                    batch.set(doc(db, "users", userCredential.user.uid), {
+                        email: email,
+                        role: 'Admin',
+                        bootstrapSetup: true,
+                        createdAt: serverTimestamp()
+                    });
+                    batch.set(doc(db, "app_meta", "bootstrap"), {
+                        claimed: true,
+                        claimedAt: serverTimestamp()
+                    });
+                    await batch.commit();
+                    bootstrapState.claimed = true;
+                    updateBootstrapUI();
+                    await signOut(auth);
+                    showAlert('First admin account created. Please sign in.');
+                } else {
+                    await setDoc(doc(db, "users", userCredential.user.uid), {
+                        email: email,
+                        role: 'Pending Approval',
+                        createdAt: serverTimestamp()
+                    });
+                    showAlert('Registration successful. Please login.');
+                }
                 document.getElementById('register-form').classList.add('hidden');
                 document.getElementById('login-form').classList.remove('hidden');
             } catch (error) {
@@ -5061,6 +5120,20 @@
         }
 
         // --- App Entry Point ---
+        const observeBootstrapState = () => {
+            const bootstrapDocRef = doc(db, "app_meta", "bootstrap");
+            unsubscribeBootstrapState = onSnapshot(bootstrapDocRef, (snapshot) => {
+                bootstrapState.loaded = true;
+                bootstrapState.claimed = snapshot.exists() && !!snapshot.data()?.claimed;
+                updateBootstrapUI();
+            }, (error) => {
+                console.error("Bootstrap state load failed:", error);
+                bootstrapState.loaded = true;
+                bootstrapState.claimed = false;
+                updateBootstrapUI();
+            });
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             // Set current year in footers
             document.querySelectorAll('.current-year').forEach(el => {
@@ -5086,6 +5159,10 @@
             consignmentForm = document.getElementById('consignment-form');
             shipmentForm = document.getElementById('shipment-form');
             nav = document.getElementById('main-nav');
+            bootstrapAdminWrap = document.getElementById('bootstrap-admin-wrap');
+            bootstrapAdminCheckbox = document.getElementById('bootstrap-admin');
+            bootstrapStatus = document.getElementById('bootstrap-status');
+            registerFlowNote = document.getElementById('register-flow-note');
 
             // Add E-way Bill row button
             document.getElementById('add-eway-bill-btn').addEventListener('click', () => addEwayBillRow());
@@ -5100,6 +5177,8 @@
 
             // Setup event listeners and start auth check
             setupEventListeners();
+            observeBootstrapState();
+            updateBootstrapUI();
             onAuthStateChanged(auth, initializeAppForUser);
         });
 

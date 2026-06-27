@@ -33,6 +33,28 @@ service cloud.firestore {
       return hasRole('Field Staff (Port Blair)');
     }
 
+    function bootstrapDocPath() {
+      return /databases/$(database)/documents/app_meta/bootstrap;
+    }
+
+    function bootstrapUserCreate(userId) {
+      return isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'Admin'
+        && request.resource.data.bootstrapSetup == true
+        && !exists(bootstrapDocPath())
+        && getAfter(bootstrapDocPath()).data.claimed == true;
+    }
+
+    function bootstrapStateCreate() {
+      return isSignedIn()
+        && !exists(bootstrapDocPath())
+        && request.resource.data.claimed == true
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin'
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.bootstrapSetup == true;
+    }
+
     // Collection Group rule for Shipments (Required for consolidated reports)
     // For external users, we restrict reading to only their shipments
     match /{path=**}/shipments/{shipmentId} {
@@ -72,7 +94,16 @@ service cloud.firestore {
     // User roles and profiles
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin();
+      allow create: if isAdmin() || bootstrapUserCreate(userId);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // App bootstrap metadata
+    match /app_meta/bootstrap {
+      allow read: if true;
+      allow create: if bootstrapStateCreate();
+      allow update, delete: if false;
     }
     
     // Counters

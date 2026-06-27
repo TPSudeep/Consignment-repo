@@ -36,6 +36,10 @@ The app now expects a local `public/firebase-config.js` file that defines `windo
 
 Use `public/firebase-config.example.js` as the template, then create your untracked local config file before running or deploying.
 
+## First Admin Bootstrap
+
+If no admin exists yet, the registration screen exposes a one-time first-admin bootstrap option. That path creates the first `Admin` user and locks the bootstrap doc so later sign-ups return to pending-approval flow.
+
 ## Deployment Notes
 
 This app appears to be deployed through Firebase Hosting. Typical flow:
